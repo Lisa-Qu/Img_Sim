@@ -21,7 +21,7 @@ Query image
 rembg background removal → alpha mask (foreground = alpha > 0)
     │
     ▼
-Dilate (3×3 ellipse) → Circumscribed-circle crop → Resize 256×256
+Dilate (3×3 ellipse) → Bounding-box crop → Pad to square → Resize 256×256
     │
     ▼
 Zernike moments (degree=24, radius=128) → 169-dim descriptor → L2 normalize
@@ -156,7 +156,7 @@ Example: `0000_FRONT_90.png`, `ABC_BACK_0.png`
 
 | Layer | Choice | Why |
 |-------|--------|-----|
-| Descriptor | Zernike moments (degree 24) | Mathematically rotation-invariant, no training |
+| Descriptor | Zernike moments (degree 24) | Mathematically rotation-invariant; scale & translation-normalized via bounding-box crop |
 | Background removal | rembg + U2Net (ONNX Runtime) | CPU-only, handles any real-world background |
 | Backend | FastAPI + uvicorn | Async, lightweight, auto-docs |
 | Frontend | React + Vite + Tailwind | Fast build, dark mode, responsive |
