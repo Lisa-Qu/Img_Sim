@@ -2,7 +2,7 @@
 
 A **rotation-invariant** content-based image retrieval (CBIR) system for product images. Upload a photo of a product at any angle — the system finds all matching views in the database using Zernike moment descriptors. Ships as a fully offline Windows package requiring only Python.
 
-<!-- Architecture diagram here: docs/architecture.png -->
+![System Architecture](docs/Figure3.png)
 
 ## Key Features
 
@@ -30,7 +30,7 @@ Zernike moments (degree=24, radius=128) → 169-dim descriptor → L2 normalize
 Cosine similarity against index → Return all matches ≥ 80%
 ```
 
-<!-- Pipeline diagram here: docs/pipeline.png -->
+![Processing Pipeline](docs/Figure1.png)
 
 Zernike polynomials are defined over the unit disk and are orthogonal under rotation, so a descriptor extracted from a 0° image is identical to one extracted from the same image at any rotation angle.
 
@@ -45,7 +45,7 @@ Tested against 260 images at random angles (13°, 53°, 58°, 72°, 115°, 126°
 | Similarity threshold | 80% cosine similarity |
 | Correct product retrieved at rank 1 | ✅ across all test angles |
 
-<!-- Results grid here: docs/results_demo.png -->
+![Rotation Invariance](docs/Figure2.png)
 
 ## Project Structure
 
