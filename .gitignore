@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Frontend build & deps
+frontend/node_modules/
+frontend/dist/
+frontend/public/fonts/
+
+# Pre-built frontend (bundled separately for Windows release)
+frontend_dist/
+
+# Offline wheels (too large for git)
+wheels/
+
+# OS
+.DS_Store
+Thumbs.db
+.DS_Store
