@@ -4,7 +4,7 @@ build_index.py — Preprocess all images into a Zernike moment index.
 Scans data/images/ for PNG/JPG files, extracts a 169-dim Zernike moment
 descriptor (degree=24) for each, L2-normalizes, and saves to index/zernike_index.pkl.
 
-Pipeline: load at full resolution → binarize (fixed threshold) → dilate (3x3 ellipse)
+Pipeline: rembg background removal → alpha mask → dilate (3x3 ellipse)
 → circumscribed-circle crop → pad to square → resize to 256x256 → Zernike moments.
 """
 
@@ -12,8 +12,11 @@ import glob
 import os
 import pickle
 import sys
+import io
 
 import cv2
+from PIL import Image
+from rembg import remove as rembg_remove
 from zernike import zernike_moments
 import numpy as np
 
@@ -25,36 +28,31 @@ INDEX_PATH = os.path.join(INDEX_DIR, "zernike_index.pkl")
 RADIUS = 128
 DEGREE = 24
 IMG_SIZE = 256
-BINARY_THRESHOLD = 220  # User-adjustable after seeing pixel_sampling.png
 
 
-def load_fullres_gray(path: str) -> np.ndarray:
-    """Load an image at full resolution and convert to grayscale."""
-    # Use imdecode to handle non-ASCII paths on Windows
-    data = np.fromfile(path, dtype=np.uint8)
-    img = cv2.imdecode(data, cv2.IMREAD_UNCHANGED)
-    if img is None:
-        raise ValueError(f"Cannot read image: {path}")
-    if len(img.shape) == 3 and img.shape[2] == 4:
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-    if len(img.shape) == 3:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return img
+def remove_background(path: str) -> np.ndarray:
+    """Remove background using rembg; return binary foreground mask at full resolution.
 
-
-def binarize_crop_resize(gray: np.ndarray) -> np.ndarray:
-    """Binarize, dilate, circumscribed-circle crop, pad to square, resize.
-
-    1. Binarize: gray < BINARY_THRESHOLD → foreground (255), else 0
-    2. Dilate with 3x3 elliptical kernel to normalize line thickness across
-       rotation angles (axis-aligned 1px lines → ~3px, matching diagonal staircase lines)
-    3. Compute centroid and max distance (circumscribed radius) of foreground
-    4. Crop a square of side 2*r_max centered on centroid (rotation-invariant scale)
-    5. Pad to exact square (handles edge clipping)
-    6. Resize to IMG_SIZE x IMG_SIZE with INTER_NEAREST (preserves binary values)
+    Uses the U2Net model via ONNX Runtime (CPU). Alpha > 0 = foreground.
     """
-    binary = np.where(gray < BINARY_THRESHOLD, np.uint8(255), np.uint8(0))
+    with open(path, "rb") as f:
+        input_bytes = f.read()
+    output_bytes = rembg_remove(input_bytes)
+    img = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
+    alpha = np.array(img)[:, :, 3]
+    return np.where(alpha > 0, np.uint8(255), np.uint8(0))
 
+
+def binarize_crop_resize(binary: np.ndarray) -> np.ndarray:
+    """Dilate, circumscribed-circle crop, pad to square, resize.
+
+    1. Dilate with 3x3 elliptical kernel to normalize line thickness across
+       rotation angles (axis-aligned 1px lines → ~3px, matching diagonal staircase lines)
+    2. Compute centroid and max distance (circumscribed radius) of foreground
+    3. Crop a square of side 2*r_max centered on centroid (rotation-invariant scale)
+    4. Pad to exact square (handles edge clipping)
+    5. Resize to IMG_SIZE x IMG_SIZE with INTER_NEAREST (preserves binary values)
+    """
     # Dilate to normalize line thickness across rotation angles
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     binary = cv2.dilate(binary, kernel, iterations=1)
@@ -92,10 +90,10 @@ def binarize_crop_resize(gray: np.ndarray) -> np.ndarray:
 def extract_zernike(path: str) -> np.ndarray:
     """Extract a 169-dim Zernike moment descriptor from an image.
 
-    Pipeline: load_fullres_gray → binarize_crop_resize → Zernike moments
+    Pipeline: remove_background → binarize_crop_resize → Zernike moments
     """
-    gray = load_fullres_gray(path)
-    binary = binarize_crop_resize(gray)
+    binary = remove_background(path)
+    binary = binarize_crop_resize(binary)
 
     # Compute centroid of foreground for Zernike center
     ys, xs = np.where(binary > 0)
@@ -132,7 +130,7 @@ def main():
         sys.exit(1)
 
     print(f"Found {len(image_paths)} images in {IMG_DIR}")
-    print(f"Pipeline: binarize (threshold={BINARY_THRESHOLD}) → crop → pad → resize({IMG_SIZE}x{IMG_SIZE}) → Zernike(degree={DEGREE})")
+    print(f"Pipeline: rembg background removal → crop → pad → resize({IMG_SIZE}x{IMG_SIZE}) → Zernike(degree={DEGREE})")
 
     paths = []
     descriptors = []
