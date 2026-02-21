@@ -15,6 +15,9 @@ import tempfile
 from typing import List
 
 import cv2
+import io
+from PIL import Image
+from rembg import remove as rembg_remove
 from zernike import zernike_moments
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -30,7 +33,6 @@ PRODUCTS_DIR = os.path.join(IMAGES_DIR, "products")
 RADIUS = 128
 DEGREE = 24
 IMG_SIZE = 256
-BINARY_THRESHOLD = 220  # Must match build_index.py
 
 app = FastAPI(title="Zernike Image Similarity")
 
@@ -59,33 +61,29 @@ def load_index():
     print(f"Loaded index: {n} images, descriptor shape {index_data['descriptors'].shape}")
 
 
-def load_fullres_gray(path: str) -> np.ndarray:
-    """Load an image at full resolution and convert to grayscale."""
-    # Use imdecode to handle non-ASCII paths on Windows
-    data = np.fromfile(path, dtype=np.uint8)
-    img = cv2.imdecode(data, cv2.IMREAD_UNCHANGED)
-    if img is None:
-        raise ValueError(f"Cannot read image: {path}")
-    if len(img.shape) == 3 and img.shape[2] == 4:
-        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-    if len(img.shape) == 3:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return img
+def remove_background(path: str) -> np.ndarray:
+    """Remove background using rembg; return binary foreground mask at full resolution.
 
-
-def binarize_crop_resize(gray: np.ndarray) -> np.ndarray:
-    """Binarize, dilate, circumscribed-circle crop, pad to square, resize.
-
-    1. Binarize: gray < BINARY_THRESHOLD → foreground (255), else 0
-    2. Dilate with 3x3 elliptical kernel to normalize line thickness across
-       rotation angles (axis-aligned 1px lines → ~3px, matching diagonal staircase lines)
-    3. Compute centroid and max distance (circumscribed radius) of foreground
-    4. Crop a square of side 2*r_max centered on centroid (rotation-invariant scale)
-    5. Pad to exact square (handles edge clipping)
-    6. Resize to IMG_SIZE x IMG_SIZE with INTER_NEAREST (preserves binary values)
+    Uses the U2Net model via ONNX Runtime (CPU). Alpha > 0 = foreground.
     """
-    binary = np.where(gray < BINARY_THRESHOLD, np.uint8(255), np.uint8(0))
+    with open(path, "rb") as f:
+        input_bytes = f.read()
+    output_bytes = rembg_remove(input_bytes)
+    img = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
+    alpha = np.array(img)[:, :, 3]
+    return np.where(alpha > 0, np.uint8(255), np.uint8(0))
 
+
+def binarize_crop_resize(binary: np.ndarray) -> np.ndarray:
+    """Dilate, circumscribed-circle crop, pad to square, resize.
+
+    1. Dilate with 3x3 elliptical kernel to normalize line thickness across
+       rotation angles (axis-aligned 1px lines → ~3px, matching diagonal staircase lines)
+    2. Compute centroid and max distance (circumscribed radius) of foreground
+    3. Crop a square of side 2*r_max centered on centroid (rotation-invariant scale)
+    4. Pad to exact square (handles edge clipping)
+    5. Resize to IMG_SIZE x IMG_SIZE with INTER_NEAREST (preserves binary values)
+    """
     # Dilate to normalize line thickness across rotation angles
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     binary = cv2.dilate(binary, kernel, iterations=1)
@@ -125,8 +123,8 @@ def extract_zernike(path: str) -> np.ndarray:
 
     Pipeline: load_fullres_gray → binarize_crop_resize → Zernike moments
     """
-    gray = load_fullres_gray(path)
-    binary = binarize_crop_resize(gray)
+    binary = remove_background(path)
+    binary = binarize_crop_resize(binary)
 
     ys, xs = np.where(binary > 0)
     if len(ys) > 0:
