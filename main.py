@@ -2,9 +2,9 @@
 main.py — FastAPI server for Zernike-based image similarity search.
 
 Loads a pre-built pickle index on startup and serves a /search endpoint
-that accepts an uploaded image and returns all images with >= 90% similarity.
+that accepts an uploaded image and returns all images with >= 80% similarity.
 
-Pipeline: load at full resolution → binarize (fixed threshold) → dilate (3x3 ellipse)
+Pipeline: rembg background removal → alpha mask → dilate (3x3 ellipse)
 → circumscribed-circle crop → pad to square → resize to 256x256 → Zernike moments.
 """
 
@@ -121,7 +121,7 @@ def binarize_crop_resize(binary: np.ndarray) -> np.ndarray:
 def extract_zernike(path: str) -> np.ndarray:
     """Extract a 169-dim Zernike moment descriptor from an image.
 
-    Pipeline: load_fullres_gray → binarize_crop_resize → Zernike moments
+    Pipeline: remove_background → binarize_crop_resize → Zernike moments
     """
     binary = remove_background(path)
     binary = binarize_crop_resize(binary)

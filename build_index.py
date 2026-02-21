@@ -4,7 +4,7 @@ build_index.py — Preprocess all images into a Zernike moment index.
 Scans data/images/ for PNG/JPG files, extracts a 169-dim Zernike moment
 descriptor (degree=24) for each, L2-normalizes, and saves to index/zernike_index.pkl.
 
-Pipeline: load at full resolution → binarize (fixed threshold) → dilate (3x3 ellipse)
+Pipeline: rembg background removal → alpha mask → dilate (3x3 ellipse)
 → circumscribed-circle crop → pad to square → resize to 256x256 → Zernike moments.
 """
 
@@ -90,7 +90,7 @@ def binarize_crop_resize(binary: np.ndarray) -> np.ndarray:
 def extract_zernike(path: str) -> np.ndarray:
     """Extract a 169-dim Zernike moment descriptor from an image.
 
-    Pipeline: load_fullres_gray → binarize_crop_resize → Zernike moments
+    Pipeline: remove_background → binarize_crop_resize → Zernike moments
     """
     binary = remove_background(path)
     binary = binarize_crop_resize(binary)
