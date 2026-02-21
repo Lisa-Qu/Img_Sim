@@ -5,7 +5,7 @@ Loads a pre-built pickle index on startup and serves a /search endpoint
 that accepts an uploaded image and returns all images with >= 80% similarity.
 
 Pipeline: rembg background removal → alpha mask → dilate (3x3 ellipse)
-→ circumscribed-circle crop → pad to square → resize to 256x256 → Zernike moments.
+→ bounding-box crop → pad to square → resize to 256x256 → Zernike moments.
 """
 
 import math
@@ -75,40 +75,28 @@ def remove_background(path: str) -> np.ndarray:
 
 
 def binarize_crop_resize(binary: np.ndarray) -> np.ndarray:
-    """Dilate, circumscribed-circle crop, pad to square, resize.
+    """Dilate, bounding-box crop, pad to square, resize.
 
     1. Dilate with 3x3 elliptical kernel to normalize line thickness across
        rotation angles (axis-aligned 1px lines → ~3px, matching diagonal staircase lines)
-    2. Compute centroid and max distance (circumscribed radius) of foreground
-    3. Crop a square of side 2*r_max centered on centroid (rotation-invariant scale)
-    4. Pad to exact square (handles edge clipping)
+    2. Find largest contour and compute its bounding box (tight scale/translation normalization)
+    3. Crop to bounding box
+    4. Pad to exact square (preserves aspect ratio → rotation invariance maintained)
     5. Resize to IMG_SIZE x IMG_SIZE with INTER_NEAREST (preserves binary values)
     """
     # Dilate to normalize line thickness across rotation angles
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     binary = cv2.dilate(binary, kernel, iterations=1)
 
-    ys, xs = np.where(binary > 0)
-    if len(ys) == 0:
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
         return np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.uint8)
 
-    # Centroid of foreground
-    cy, cx = ys.mean(), xs.mean()
+    # Tight bounding box of the largest contour
+    x, y, w, h = cv2.boundingRect(max(contours, key=cv2.contourArea))
+    cropped = binary[y:y + h, x:x + w]
 
-    # Max distance from centroid to any foreground pixel (circumscribed radius)
-    dists = np.sqrt((ys - cy) ** 2 + (xs - cx) ** 2)
-    r_max = dists.max()
-
-    # Crop a square of side 2*r_max centered on centroid
-    half = int(np.ceil(r_max)) + 1
-    h, w = binary.shape
-    y0 = max(0, int(round(cy)) - half)
-    y1 = min(h, int(round(cy)) + half)
-    x0 = max(0, int(round(cx)) - half)
-    x1 = min(w, int(round(cx)) + half)
-    cropped = binary[y0:y1, x0:x1]
-
-    # Pad to exact square (handles edge clipping)
+    # Pad to exact square (preserves aspect ratio -> rotation invariance maintained)
     ch, cw = cropped.shape
     side = max(ch, cw)
     padded = np.zeros((side, side), dtype=np.uint8)
