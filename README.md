@@ -47,27 +47,47 @@ Tested against 260 images at random angles (13°, 53°, 58°, 72°, 115°, 126°
 
 ![Rotation Invariance](docs/Figure2.png)
 
+## Dataset Structure
+
+![Dataset Grid](docs/Figure4_dataset.png)
+
+Each product is captured from 6 views (BACK, FRONT, LEFT, RIGHT, TOP, BOTTOM) at 6 rotation angles (0°–300° in 60° steps), giving 36 images per product.
+
+To regenerate this figure with your own product images:
+
+```bash
+python generate_grid_cells.py \
+  --back BACK.png --front FRONT.png --left LEFT.png \
+  --right RIGHT.png --top TOP.png --bottom BOTTOM.png
+```
+
 ## Project Structure
 
 ```
 图像检索系统/
-├── main.py               # FastAPI server — search, database, SPA serving
-├── build_index.py        # Index builder — processes images → pickle
-├── zernike.py            # Pure-numpy Zernike moments (no C deps)
+├── main.py                  # FastAPI server — search, database, SPA serving
+├── build_index.py           # Index builder — processes images → pickle
+├── zernike.py               # Pure-numpy Zernike moments (no C deps)
+├── generate_grid_cells.py   # Generates dataset grid figure from 6 view images
 ├── requirements.txt
-├── install.bat           # Windows: one-click pip install from local wheels
-├── start.bat             # Windows: start server + open browser
+├── install.bat              # Windows: one-click pip install from local wheels
+├── start.bat                # Windows: start server + open browser
 ├── data/
-│   └── images/products/  # 156 product images (6 views × 6 rotations each)
+│   └── images/products/     # 156 product images (6 views × 6 rotations each)
 ├── index/
-│   └── zernike_index.pkl # Pre-built index (paths + 169-dim descriptors)
-├── test_random_rotations/ # 260 test images at random angles (13°–347°)
-└── frontend/             # React + Vite + Tailwind source
+│   └── zernike_index.pkl    # Pre-built index (paths + 169-dim descriptors)
+├── test_random_rotations/   # 260 test images at random angles (13°–347°)
+├── docs/                    # README figures
+│   ├── Figure1.png          # Processing pipeline
+│   ├── Figure2.png          # Rotation invariance illustration
+│   ├── Figure3.png          # System architecture
+│   └── Figure4_dataset.png  # Dataset grid (auto-generated)
+└── frontend/                # React + Vite + Tailwind source
     ├── src/pages/
-    │   ├── UploadPage.jsx    # Search interface
-    │   ├── DatabasePage.jsx  # Database management
-    │   └── ResultsPage.jsx   # Search results grid
-    └── public/fonts/     # Offline fonts (Inter, Noto Sans SC, Material Symbols)
+    │   ├── UploadPage.jsx       # Search interface
+    │   ├── DatabasePage.jsx     # Database management
+    │   └── ResultsPage.jsx      # Search results grid
+    └── public/fonts/        # Offline fonts (Inter, Noto Sans SC, Material Symbols)
 ```
 
 ## Quickstart
