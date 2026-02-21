@@ -20,3 +20,6 @@ wheels/
 .DS_Store
 Thumbs.db
 .DS_Store
+data/
+echo data/ >> .gitignore/
+test_random_rotations/
