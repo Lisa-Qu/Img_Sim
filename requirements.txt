@@ -4,4 +4,7 @@ python-multipart>=0.0.6
 numpy
 opencv-python
 Pillow>=10.0.0
+rembg>=2.0.50
+onnxruntime>=1.16.0
 colorama
+pytest>=7.0.0
