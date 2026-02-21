@@ -1,5 +1,5 @@
 """
-Pipeline tests for background removal integration.
+Pipeline tests for background removal and bounding-box normalization.
 
 Run with:
     pytest tests/test_pipeline.py -v
@@ -96,7 +96,7 @@ class TestBboxCropResize:
         )
 
     def test_elongated_product_fills_frame_better_than_square_radius(self):
-        """Bbox crop: elongated product (20x80) should fill >50% of 256x256 output."""
+        """Bbox crop: elongated product (20x80) should fill >24% of 256x256 output."""
         from main import binarize_crop_resize
 
         # 20px wide x 80px tall product in a 200x200 frame
