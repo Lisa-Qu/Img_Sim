@@ -18,7 +18,7 @@ A **rotation-invariant** content-based image retrieval (CBIR) system for product
 Query image
     │
     ▼
-Grayscale → Binarize (threshold=220)
+rembg background removal → alpha mask (foreground = alpha > 0)
     │
     ▼
 Dilate (3×3 ellipse) → Circumscribed-circle crop → Resize 256×256
@@ -95,14 +95,20 @@ python generate_grid_cells.py \
 ### macOS / Linux
 
 ```bash
-# 1. Install dependencies
+# 1. Create virtual environment and install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+# Note: first run downloads U2Net model (~170MB) to ~/.u2net/
 
 # 2. Build frontend (first time only)
 cd frontend && npm install && npm run build && cd ..
 cp -r frontend/dist frontend_dist
 
-# 3. Start server
+# 3. Rebuild index
+python build_index.py
+
+# 4. Start server
 python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -151,6 +157,7 @@ Example: `0000_FRONT_90.png`, `ABC_BACK_0.png`
 | Layer | Choice | Why |
 |-------|--------|-----|
 | Descriptor | Zernike moments (degree 24) | Mathematically rotation-invariant, no training |
+| Background removal | rembg + U2Net (ONNX Runtime) | CPU-only, handles any real-world background |
 | Backend | FastAPI + uvicorn | Async, lightweight, auto-docs |
 | Frontend | React + Vite + Tailwind | Fast build, dark mode, responsive |
 | Similarity | Cosine (numpy matmul) | O(1) after L2 normalization |
@@ -162,7 +169,10 @@ Example: `0000_FRONT_90.png`, `ABC_BACK_0.png`
 fastapi, uvicorn, python-multipart   # API server
 numpy, opencv-python                 # Image processing
 Pillow                               # Image I/O
+rembg, onnxruntime                   # Background removal (U2Net, CPU-only)
 colorama                             # Windows terminal colors
 ```
+
+`rembg` downloads the U2Net model (~170MB) to `~/.u2net/` on first use. No internet access required after the initial download.
 
 `zernike.py` is a pure-numpy implementation — no C compiler or platform-specific wheels required.
