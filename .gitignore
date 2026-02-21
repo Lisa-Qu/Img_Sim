@@ -21,7 +21,6 @@ wheels/
 Thumbs.db
 .DS_Store
 data/
-echo data/ >> .gitignore/
 test_random_rotations/
 
 # Claude guidance (local only)

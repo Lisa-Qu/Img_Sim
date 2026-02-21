@@ -11,11 +11,11 @@ Pipeline: rembg background removal → alpha mask → dilate (3x3 ellipse)
 import math
 import os
 import pickle
+import io
 import tempfile
 from typing import List
 
 import cv2
-import io
 from PIL import Image
 from rembg import remove as rembg_remove
 from zernike import zernike_moments
