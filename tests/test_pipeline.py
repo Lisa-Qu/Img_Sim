@@ -73,16 +73,16 @@ class TestExtractZernike:
 
 class TestBboxCropResize:
     def test_same_product_at_different_positions_gives_same_fill(self):
-        """Bbox crop: product position in frame should not affect output fill ratio."""
+        """Bbox crop: product position in frame should not affect output (translation invariant)."""
         from main import binarize_crop_resize
 
         # 40x40 product centered in 200x200 frame
         mask_center = np.zeros((200, 200), dtype=np.uint8)
         mask_center[80:120, 80:120] = 255
 
-        # Same 40x40 product at top-left corner
+        # Same 40x40 product near corner (5px margin so dilation is not clipped at boundary)
         mask_corner = np.zeros((200, 200), dtype=np.uint8)
-        mask_corner[0:40, 0:40] = 255
+        mask_corner[5:45, 5:45] = 255
 
         result_center = binarize_crop_resize(mask_center)
         result_corner = binarize_crop_resize(mask_corner)
@@ -90,12 +90,9 @@ class TestBboxCropResize:
         assert result_center.shape == (256, 256)
         assert result_corner.shape == (256, 256)
 
-        # Bbox crop: product always fills the frame -> fill ratios should be nearly equal
-        center_fill = int(np.sum(result_center > 0))
-        corner_fill = int(np.sum(result_corner > 0))
-        assert abs(center_fill - corner_fill) < 500, (
-            f"Bbox should produce equal fill regardless of position: "
-            f"center={center_fill}, corner={corner_fill}"
+        # Bbox crop produces pixel-identical outputs regardless of product position
+        assert np.array_equal(result_center, result_corner), (
+            "Bbox crop should produce identical output regardless of product position in frame"
         )
 
     def test_elongated_product_fills_frame_better_than_square_radius(self):
@@ -110,7 +107,7 @@ class TestBboxCropResize:
         assert result.shape == (256, 256)
 
         fill_ratio = np.sum(result > 0) / (256 * 256)
-        assert fill_ratio > 0.20, f"Expected fill > 20%, got {fill_ratio:.2%}"
+        assert fill_ratio > 0.24, f"Expected fill > 24%, got {fill_ratio:.2%}"
 
     def test_output_shape_is_always_256x256(self):
         """binarize_crop_resize always returns 256x256 regardless of input size."""

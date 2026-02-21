@@ -61,7 +61,7 @@ def binarize_crop_resize(binary: np.ndarray) -> np.ndarray:
     if not contours:
         return np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.uint8)
 
-    # Tight bounding box of the largest contour
+    # Tight bounding box of the largest contour (ignores small noise fragments from background removal)
     x, y, w, h = cv2.boundingRect(max(contours, key=cv2.contourArea))
     cropped = binary[y:y + h, x:x + w]
 
